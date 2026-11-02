@@ -536,7 +536,9 @@ if cad_file:
                 st.session_state.cad_doc = cad_res["cad_doc"]
                 st.session_state.uploaded_cad_filename = cad_file.name
             except Exception as e:
-                st.error(f"CAD Conversion error: {e}")
+                st.session_state.cad_data = None
+                st.session_state.cad_doc = None
+                st.error(f"CAD File Error: {e}")
 
 # --------------------------------------------------------
 # 3D CAD Interactive Viewer & Parts Details

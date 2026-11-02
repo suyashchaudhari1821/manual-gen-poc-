@@ -2097,32 +2097,45 @@ def convert_cad_to_gltf(input_path: str, output_dir: str,
             logger.info(f"Trying direct faceted STEP mesh extractor for {input_path}")
             assembly = _try_step_direct_faceted_mesh(input_path)
 
-        # 4. Fallback: Companion CAD file search (for external reference assembly files)
-        if assembly is None and ext in ('.step', '.stp', '.iges', '.igs'):
-            logger.info(f"Trying companion file fallback for {input_path}")
-            assembly = _try_companion_fallback(input_path)
-
-        # 5. Fallback: STL/OBJ basic import
+        # 4. Fallback: STL/OBJ basic import
         if assembly is None and ext in ('.stl', '.obj'):
             assembly = _trimesh_import(input_path)
 
+        # Strict validation: Never generate fake boxes or load substitute files
         if assembly is None or (assembly.node_type == "assembly" and len(assembly.children) == 0 and assembly.mesh_data is None):
-            logger.warning("All parsers failed for %s", input_path)
-            error_msg = (
-                f"Could not parse '{Path(input_path).name}'. "
-                f"The file may be corrupted, encrypted, or contain unsupported non-geometric entities.\n\n"
-                f"Attempted:\n"
-                f"  1. OpenCASCADE XDE hierarchy reader\n"
-                f"  2. OpenCASCADE plain reader with adaptive meshing\n"
-                f"  3. OpenCASCADE shell and surface-face extractor\n"
-                f"  4. Trimesh mesh & scene fallback\n"
-                f"  5. Direct STEP faceted mesh poly-loop scanner\n"
-                f"  6. Assembly companion geometry matcher\n\n"
-                f"Troubleshooting:\n"
-                f"  - Re-export with standard STEP AP203, AP214, or AP242 settings\n"
-                f"  - Or export directly as STL format for maximum mesh compatibility"
-            )
-            raise ValueError(error_msg)
+            logger.warning("No embedded 3D geometry found for %s", input_path)
+
+            # Inspect if file is an external-reference assembly structure
+            part_names = []
+            try:
+                import re
+                with open(input_path, 'r', errors='ignore') as f:
+                    content = f.read(1024 * 512)
+                for m in re.finditer(r"PRODUCT\s*\(\s*'([^']+)'", content):
+                    name = m.group(1).strip()
+                    if name and name not in part_names and not any(k in name.upper() for k in ['ASSY', 'ASSEMBLY', 'CADNODE']):
+                        part_names.append(name)
+            except Exception:
+                pass
+
+            file_display_name = Path(input_path).name
+            if part_names:
+                preview = ", ".join(part_names[:5])
+                if len(part_names) > 5:
+                    preview += f", ... (+{len(part_names)-5} more)"
+                raise ValueError(
+                    f"The uploaded CAD file '{file_display_name}' contains assembly hierarchy metadata ({len(part_names)} parts: {preview}), "
+                    f"but does NOT contain any embedded 3D solid geometry (0 solid bodies, 0 surface meshes).\n\n"
+                    f"This occurs when CAD software (such as CATIA) exports an assembly as 'Structure Only' or 'External References' rather than embedding the solid part geometry into the file.\n\n"
+                    f"Please upload a CAD file containing actual 3D geometry:\n"
+                    f"  • A monolithic STEP file (STEP AP214 or AP242 exported with 'Embed Part Geometry' enabled)\n"
+                    f"  • Or an individual 3D part file (.stl, .obj, or .stp containing solid geometry)"
+                )
+            else:
+                raise ValueError(
+                    f"The uploaded file '{file_display_name}' does not contain readable 3D solid geometry or surface meshes.\n\n"
+                    f"Please upload a standard monolithic STEP AP214/AP242, STL, or OBJ 3D file."
+                )
 
     # Build glTF
     builder = GLTFBuilder()
