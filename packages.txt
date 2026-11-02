@@ -1,3 +1,11 @@
 libgl1
+libglu1-mesa
 libglib2.0-0
 libgomp1
+libsm6
+libice6
+libx11-6
+libxext6
+libxrender1
+libfontconfig1
+libfreetype6

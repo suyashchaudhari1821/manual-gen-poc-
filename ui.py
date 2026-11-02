@@ -6,10 +6,14 @@ import base64
 import textwrap
 import fitz
 import pandas as pd
-from cad_service import process_cad_file
 import importlib
 import cad_viewer
 importlib.reload(cad_viewer)
+import cad_converter_v2
+importlib.reload(cad_converter_v2)
+import cad_service
+importlib.reload(cad_service)
+from cad_service import process_cad_file
 from cad_viewer import display_cad_viewer
 from cad_parser import parse_step_file
 from bom_parser import parse_bom_file_from_path
