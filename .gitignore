@@ -1,0 +1,23 @@
+# Virtual Environment
+.venv/
+venv/
+ENV/
+env/
+
+# Python bytecode & cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+
+# Local runtime & scratch files
+converted_cad/
+test_cad1_glb/
+scratch_original_cad_viewer.py
+temp_*
+*.tmp
+_tmp_*
+
+# OS metadata
+.DS_Store
+Thumbs.db

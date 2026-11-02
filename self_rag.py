@@ -1,4 +1,7 @@
-from langchain_ollama import ChatOllama
+try:
+    from langchain_ollama import ChatOllama
+except ImportError:
+    ChatOllama = None
 import torch
 import open_clip
 import numpy as np
@@ -17,15 +20,19 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
 from langchain_core.prompts import ChatPromptTemplate, PromptTemplate
 from langgraph.graph import StateGraph, START, END
-from transformers import pipeline 
-from langchain_huggingface import HuggingFacePipeline 
 import re
 import streamlit as st
 import json
-from langchain_huggingface import (
-    ChatHuggingFace,
-    HuggingFacePipeline
-)
+try:
+    from transformers import pipeline 
+    from langchain_huggingface import (
+        ChatHuggingFace,
+        HuggingFacePipeline
+    )
+except ImportError:
+    pipeline = None
+    ChatHuggingFace = None
+    HuggingFacePipeline = None
 from rag_pipeline import (
     search_text_chunks,
     search_images,

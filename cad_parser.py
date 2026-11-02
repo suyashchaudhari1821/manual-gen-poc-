@@ -7,8 +7,6 @@ Fix for error:
   'new_BRepMesh_IncrementalMesh'
 """
 import logging
-from OCP.TopoDS import TopoDS
-
 logger = logging.getLogger(__name__)
 from cad_models import CADAssembly
 import time
@@ -21,9 +19,11 @@ from cad_tracing import traceable
 
 # Try to detect if OCC is available
 try:
+    from OCP.TopoDS import TopoDS
     from OCP.STEPControl import STEPControl_Reader
     OCC_AVAILABLE = True
 except ImportError:
+    TopoDS = None
     OCC_AVAILABLE = False
 
 def _parse_binary_stl(filepath, num_facets):
@@ -536,6 +536,7 @@ def tessellate_shape(shape, linear_deflection=0.1, angular_deflection=0.5, relat
 def load_step_file(filepath):
     """
     Load a STEP (.stp / .step) file and return the shape.
+    Handles converted STEP files, multi-root assemblies, and tolerant status returns.
 
     Args:
         filepath (str): Path to the STEP file
@@ -545,18 +546,51 @@ def load_step_file(filepath):
     """
     from OCP.STEPControl import STEPControl_Reader
     from OCP.IFSelect import IFSelect_RetDone
+    from OCP.Interface import Interface_Static
+    from OCP.TopAbs import TopAbs_SOLID, TopAbs_COMPOUND, TopAbs_SHELL, TopAbs_COMPSOLID, TopAbs_FACE
 
     if not os.path.exists(filepath):
         raise FileNotFoundError(f"STEP file not found: {filepath}")
 
+    Interface_Static.SetIVal_s('read.step.shape.repr', 1)
+    Interface_Static.SetIVal_s('read.step.assembly.level', 1)
+    Interface_Static.SetIVal_s('read.step.shape.aspect', 1)
+
     reader = STEPControl_Reader()
     status = reader.ReadFile(str(filepath))
 
-    if status != IFSelect_RetDone:
-        raise ValueError(f"Failed to read STEP file: {filepath} (status={status})")
+    num_roots = 0
+    try:
+        num_roots = reader.NbRootsForTransfer()
+    except Exception:
+        pass
 
-    reader.TransferRoots()
+    if status != IFSelect_RetDone and num_roots == 0:
+        logger.warning(f"STEP reader status {status} and 0 roots for {filepath}")
+
+    try:
+        reader.TransferRoots()
+    except Exception as e:
+        logger.warning(f"STEP TransferRoots notice: {e}")
+
     shape = reader.OneShape()
+
+    if shape.IsNull() or shape.ShapeType() not in (TopAbs_SOLID, TopAbs_COMPOUND, TopAbs_SHELL, TopAbs_COMPSOLID, TopAbs_FACE):
+        nb_s = reader.NbShapes()
+        if nb_s > 0:
+            from OCP.BRep import BRep_Builder
+            from OCP.TopoDS import TopoDS_Compound
+            builder = BRep_Builder()
+            compound = TopoDS_Compound()
+            builder.MakeCompound(compound)
+            added = 0
+            for i in range(1, nb_s + 1):
+                s = reader.Shape(i)
+                if not s.IsNull():
+                    builder.Add(compound, s)
+                    added += 1
+            if added > 0:
+                shape = compound
 
     if shape.IsNull():
         raise ValueError(f"STEP file loaded but shape is null: {filepath}")
@@ -1064,15 +1098,16 @@ def _aggregate_cad_summary(parts: list[dict]) -> dict:
 @traceable(name="parse_step_file")
 def parse_step_file(filepath):
     """
-    Entry point used by the app's CAD upload handler and by
-    spec_resolver.build_spec_card().
-
-    Decomposes the STEP or STL file and returns geometry data.
-
-    Returns
-    -------
-    dict: {"file": ..., "pythonocc_version": ..., "parts": [ {...}, ... ]}
+    Entry point used by CAD upload handler.
+    Uses cad_service and PartsManager to parse unique parts with duplicate renaming.
     """
+    try:
+        from cad_service import process_cad_file
+        res = process_cad_file(filepath)
+        return res["cad_doc"]
+    except Exception as e:
+        logger.warning(f"cad_service.process_cad_file fallback notice: {e}")
+
     start_time = time.perf_counter()
     ext = os.path.splitext(filepath)[1].lower()
     if ext == ".stl":

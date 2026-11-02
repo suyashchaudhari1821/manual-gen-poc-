@@ -2,7 +2,14 @@ import streamlit as st
 import tempfile
 import json
 import os
+import textwrap
 import fitz
+import pandas as pd
+from cad_service import process_cad_file
+import importlib
+import cad_viewer
+importlib.reload(cad_viewer)
+from cad_viewer import display_cad_viewer
 from cad_parser import parse_step_file
 from bom_parser import parse_bom_file_from_path
 from manual_parser import parse_manual
@@ -162,15 +169,239 @@ def save_uploaded_file(uploaded_file):
 
 
 
-st.write("UI Loaded Successfully")
+def get_base64_image(image_path):
+    try:
+        with open(image_path, "rb") as img_file:
+            return base64.b64encode(img_file.read()).decode()
+    except Exception:
+        return ""
 
 st.set_page_config(
-    page_title="Engineering Documentation Generator",
+    page_title="Expleo | Engineering Documentation Generator",
+    page_icon="static/favicon.png",
     layout="wide",
 )
 
-st.title("Engineering Documentation Generator")
-st.success("Page Loaded")
+def inject_expleo_theme():
+    bg_b64 = get_base64_image("static/expleo_bg_hd.png")
+    bg_css = f"url('data:image/png;base64,{bg_b64}')" if bg_b64 else "none"
+
+    st.markdown(textwrap.dedent(f"""
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
+
+    /* Expleo Brand Atmosphere with Crisp HD Background */
+    .stApp {{
+        background-color: #5631c7 !important;
+        background-image: 
+            linear-gradient(180deg, rgba(16, 11, 34, 0.50) 0%, rgba(22, 14, 46, 0.68) 100%),
+            {bg_css} !important;
+        background-size: cover, cover !important;
+        background-position: center, center !important;
+        background-repeat: no-repeat, no-repeat !important;
+        background-attachment: fixed, fixed !important;
+        font-family: 'Inter', -apple-system, sans-serif !important;
+        color: #F8FAFC !important;
+    }}
+
+    /* Hide default Streamlit chrome */
+    [data-testid="stHeader"], #MainMenu, footer {{
+        display: none !important;
+    }}
+
+    .main .block-container {{
+        max-width: 1440px !important;
+        padding-top: 1.2rem !important;
+        padding-bottom: 3rem !important;
+        padding-left: 2rem !important;
+        padding-right: 2rem !important;
+        margin: auto !important;
+    }}
+
+    /* Top Navigation Bar - Clean Corporate */
+    .expleo-topbar {{
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 20px;
+        margin-bottom: 22px;
+        background: rgba(16, 20, 36, 0.70) !important;
+        backdrop-filter: blur(16px) !important;
+        -webkit-backdrop-filter: blur(16px) !important;
+        border: 1px solid rgba(255, 255, 255, 0.12) !important;
+        border-radius: 12px !important;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25) !important;
+    }}
+
+    .expleo-nav-brand {{
+        display: flex;
+        align-items: center;
+        gap: 16px;
+    }}
+
+    .nav-logo {{
+        height: 36px;
+        object-fit: contain;
+    }}
+
+    .nav-divider {{
+        width: 1px;
+        height: 28px;
+        background: rgba(148, 163, 184, 0.35);
+    }}
+
+    .nav-title {{
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: #FFFFFF;
+        letter-spacing: -0.01em;
+    }}
+
+    /* Section Architecture Headers */
+    .section-header {{
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-top: 24px;
+        margin-bottom: 14px;
+    }}
+
+    .step-badge {{
+        background: rgba(2, 132, 199, 0.16);
+        border: 1px solid rgba(56, 189, 248, 0.40);
+        color: #38BDF8;
+        font-size: 0.72rem;
+        font-weight: 700;
+        padding: 4px 10px;
+        border-radius: 6px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }}
+
+    .section-title {{
+        font-size: 1.15rem;
+        font-weight: 700;
+        color: #F8FAFC;
+        letter-spacing: -0.01em;
+    }}
+
+    /* File Uploader Dropzones */
+    [data-testid="stFileUploaderDropzone"],
+    section[data-testid="stFileUploadDropzone"] {{
+        background: rgba(16, 20, 36, 0.72) !important;
+        backdrop-filter: blur(14px) !important;
+        -webkit-backdrop-filter: blur(14px) !important;
+        border: 1px dashed rgba(56, 189, 248, 0.35) !important;
+        border-radius: 12px !important;
+        padding: 16px 20px !important;
+        color: #F8FAFC !important;
+        transition: all 0.2s ease !important;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.20) !important;
+    }}
+
+    [data-testid="stFileUploadDropzone"]:hover {{
+        border-color: #38BDF8 !important;
+        background: rgba(22, 28, 48, 0.85) !important;
+        box-shadow: 0 0 20px rgba(2, 132, 199, 0.25) !important;
+    }}
+
+    /* Engineering KPI & Metric Cards */
+    div[data-testid="stMetric"] {{
+        background: rgba(16, 20, 36, 0.76) !important;
+        backdrop-filter: blur(16px) !important;
+        -webkit-backdrop-filter: blur(16px) !important;
+        border: 1px solid rgba(56, 189, 248, 0.22) !important;
+        border-radius: 12px !important;
+        padding: 16px 20px !important;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25) !important;
+        transition: all 0.2s ease !important;
+    }}
+    div[data-testid="stMetric"]:hover {{
+        border-color: rgba(56, 189, 248, 0.50) !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 6px 24px rgba(2, 132, 199, 0.30) !important;
+    }}
+    div[data-testid="stMetric"] label {{
+        color: #94A3B8 !important;
+        font-weight: 600 !important;
+        font-size: 0.76rem !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.05em !important;
+    }}
+    div[data-testid="stMetric"] div[data-testid="stMetricValue"] {{
+        color: #FFFFFF !important;
+        font-weight: 700 !important;
+        font-size: 1.75rem !important;
+    }}
+
+    /* Expleo Cobalt Action Buttons */
+    div[data-testid="stButton"] button {{
+        background: linear-gradient(135deg, #0284C7 0%, #0066FF 100%) !important;
+        color: #FFFFFF !important;
+        font-weight: 600 !important;
+        font-size: 0.92rem !important;
+        border-radius: 8px !important;
+        border: 1px solid rgba(56, 189, 248, 0.40) !important;
+        padding: 10px 24px !important;
+        box-shadow: 0 4px 16px rgba(2, 132, 199, 0.35) !important;
+        transition: all 0.2s ease !important;
+    }}
+    div[data-testid="stButton"] button:hover {{
+        background: linear-gradient(135deg, #0369A1 0%, #0052CC 100%) !important;
+        box-shadow: 0 6px 24px rgba(2, 132, 199, 0.50) !important;
+        transform: translateY(-1px) !important;
+    }}
+
+    /* Inputs */
+    textarea, input[type="text"] {{
+        background: rgba(16, 20, 36, 0.78) !important;
+        backdrop-filter: blur(12px) !important;
+        -webkit-backdrop-filter: blur(12px) !important;
+        border: 1px solid rgba(56, 189, 248, 0.25) !important;
+        border-radius: 10px !important;
+        color: #F8FAFC !important;
+    }}
+    textarea:focus, input[type="text"]:focus {{
+        border-color: #0284C7 !important;
+        box-shadow: 0 0 14px rgba(2, 132, 199, 0.30) !important;
+    }}
+
+    /* Expanders & Data Tables */
+    details[data-testid="stExpander"] {{
+        background: rgba(16, 20, 36, 0.72) !important;
+        backdrop-filter: blur(14px) !important;
+        -webkit-backdrop-filter: blur(14px) !important;
+        border: 1px solid rgba(56, 189, 248, 0.22) !important;
+        border-radius: 12px !important;
+    }}
+    button[data-baseweb="tab"] {{
+        color: #94A3B8 !important;
+        font-weight: 600 !important;
+    }}
+    button[data-baseweb="tab"][aria-selected="true"] {{
+        color: #38BDF8 !important;
+        border-bottom-color: #0284C7 !important;
+    }}
+    </style>
+    """).strip(), unsafe_allow_html=True)
+
+inject_expleo_theme()
+
+def render_expleo_topbar():
+    logo_b64 = get_base64_image("static/expleo_logo.png")
+    logo_html = f'<img src="data:image/png;base64,{logo_b64}" class="nav-logo" alt="Expleo" />' if logo_b64 else '<span style="font-size:1.35rem;font-weight:800;color:#fff;letter-spacing:0.5px;">[ expleo ]</span>'
+
+    st.markdown(textwrap.dedent(f"""
+    <div class="expleo-topbar">
+      <div class="expleo-nav-brand">
+        {logo_html}
+        <div class="nav-divider"></div>
+        <div class="nav-title">Engineering Documentation Generator</div>
+      </div>
+    </div>
+    """).strip(), unsafe_allow_html=True)
+
+render_expleo_topbar()
 
 
 # --------------------------------------------------------
@@ -207,6 +438,21 @@ if "manual_type" not in st.session_state:
 if "uploaded_filename" not in st.session_state:
     st.session_state.uploaded_filename = None
 
+if "cad_data" not in st.session_state:
+    st.session_state.cad_data = None
+
+if "cad_doc" not in st.session_state:
+    st.session_state.cad_doc = None
+
+if "bom_doc" not in st.session_state:
+    st.session_state.bom_doc = None
+
+if "uploaded_cad_filename" not in st.session_state:
+    st.session_state.uploaded_cad_filename = None
+
+if "uploaded_bom_filename" not in st.session_state:
+    st.session_state.uploaded_bom_filename = None
+
 if st.session_state.document_state:
     st.sidebar.write(
          "Document:",
@@ -225,41 +471,38 @@ if st.session_state.document_state:
 # File Uploads
 # --------------------------------------------------------
 
-st.subheader("Upload Files")
+st.markdown('<div style="font-size: 1.18rem; font-weight: 700; color: #FFFFFF; margin-top: 16px; margin-bottom: 12px; letter-spacing: -0.01em;">Upload Engineering Assets</div>', unsafe_allow_html=True)
 
-cad_file = st.file_uploader(
-    "Upload CAD File (.stp)",
-    type=["stp", "step"],
-)
+col_u1, col_u2, col_u3 = st.columns(3)
 
-bom_file = st.file_uploader(
-    "Upload BOM File",
-    type=["pdf", "xlsx", "xls", "csv"],
-)
+with col_u1:
+    cad_file = st.file_uploader(
+        "Upload CAD File (.stp, .step, .stl)",
+        type=["stp", "step", "stl", "obj"],
+    )
 
-manual_file = st.file_uploader(
-    "Upload User Manual",
-    type=["pdf","docx"],
-)
+with col_u2:
+    bom_file = st.file_uploader(
+        "Upload BOM File",
+        type=["pdf", "xlsx", "xls", "csv"],
+    )
+
+with col_u3:
+    manual_file = st.file_uploader(
+        "Upload User Manual",
+        type=["pdf", "docx"],
+    )
+
+# Handle Manual File
 if (
     manual_file
     and
     manual_file.name
     != st.session_state.uploaded_filename
 ):
-
-    st.session_state.uploaded_filename = (
-        manual_file.name
-    )
-
-    st.session_state.manual_path = (
-        save_uploaded_file(manual_file)
-    )
-
-    st.session_state.manual_type = (
-        manual_file.name.split(".")[-1].lower()
-    )
-
+    st.session_state.uploaded_filename = manual_file.name
+    st.session_state.manual_path = save_uploaded_file(manual_file)
+    st.session_state.manual_type = manual_file.name.split(".")[-1].lower()
     st.session_state.document_state = DocumentState(
         document_thread_id=str(uuid.uuid4()),
         document_name=manual_file.name,
@@ -267,18 +510,91 @@ if (
         version=0
     )
 
-
-
-# --------------------------------------------------------
-# Save Uploaded Files
-# --------------------------------------------------------
-
-
-if cad_file:
-    st.session_state.cad_path = save_uploaded_file(cad_file)
-
-if bom_file:
+# Handle BOM File
+if bom_file and st.session_state.uploaded_bom_filename != bom_file.name:
     st.session_state.bom_path = save_uploaded_file(bom_file)
+    st.session_state.uploaded_bom_filename = bom_file.name
+    try:
+        with st.spinner(f"Reading BOM: {bom_file.name}..."):
+            st.session_state.bom_doc = parse_bom_file_from_path(st.session_state.bom_path)
+            # Re-correlate CAD if CAD was already uploaded
+            if st.session_state.get("cad_path"):
+                cad_res = process_cad_file(st.session_state.cad_path, bom_doc=st.session_state.bom_doc)
+                st.session_state.cad_data = cad_res
+                st.session_state.cad_doc = cad_res["cad_doc"]
+    except Exception as e:
+        st.warning(f"BOM parsing notice: {e}")
+
+# Handle CAD File & 3D Conversion
+if cad_file:
+    force_reload = st.session_state.get("force_cad_reload", False)
+    if st.session_state.get("uploaded_cad_filename") != cad_file.name or force_reload or not st.session_state.get("cad_data"):
+        st.session_state.force_cad_reload = False
+        st.session_state.cad_path = save_uploaded_file(cad_file)
+        with st.spinner(f"Converting {cad_file.name} to 3D WebGL & parsing parts with PartsManager..."):
+            try:
+                cad_res = process_cad_file(
+                    file_path=st.session_state.cad_path,
+                    bom_doc=st.session_state.get("bom_doc")
+                )
+                st.session_state.cad_data = cad_res
+                st.session_state.cad_doc = cad_res["cad_doc"]
+                st.session_state.uploaded_cad_filename = cad_file.name
+            except Exception as e:
+                st.error(f"CAD Conversion error: {e}")
+
+# --------------------------------------------------------
+# 3D CAD Interactive Viewer & Parts Details
+# --------------------------------------------------------
+if st.session_state.get("cad_data"):
+    cad_info = st.session_state.cad_data
+    dup_report = cad_info["duplicate_report"]
+    
+    cv_head_col1, cv_head_col2 = st.columns([0.82, 0.18])
+    with cv_head_col1:
+        st.markdown('<div style="font-size: 1.25rem; font-weight: 700; color: #FFFFFF; margin-top: 24px; margin-bottom: 14px; letter-spacing: -0.01em;">3D CAD Viewer</div>', unsafe_allow_html=True)
+    with cv_head_col2:
+        st.markdown('<div style="margin-top: 20px;"></div>', unsafe_allow_html=True)
+        if st.button("Reload 3D Model", key="btn_reload_cad_model"):
+            st.session_state.force_cad_reload = True
+            st.session_state.cad_data = None
+            st.rerun()
+    
+    # Metrics
+    m1, m2, m3, m4 = st.columns(4)
+    with m1:
+        st.metric("Total Parts", len(cad_info["parts_list"]))
+    with m2:
+        st.metric("Unique Types", dup_report["unique_count"])
+    with m3:
+        st.metric("Duplicate Parts Found", dup_report["duplicates_found"])
+    with m4:
+        st.metric("3D Model Size", f"{cad_info['stats']['file_size_mb']} MB")
+        
+    # Render the Three.js 3D Viewport
+    display_cad_viewer(
+        glb_b64=cad_info["glb_b64"],
+        model_name=st.session_state.get("uploaded_cad_filename", "CAD Model"),
+        parts_list=cad_info["parts_list"],
+        unique_parts_list=cad_info["unique_parts_list"],
+        structured_parts=cad_info.get("structured_parts"),
+        height=640
+    )
+    
+    # Expandable Parts Details Table
+    with st.expander("Assembly Components & BOM Identification", expanded=False):
+        df_parts = pd.DataFrame([
+            {
+                "Item #": p["part_id"],
+                "Original CAD Name": p["name"],
+                "Unique Part ID": p["unique_name"],
+                "Part Number": p["part_number"],
+                "Occurrence": f"#{p['occurrence']} of {p['total_occurrences']}" if p["is_duplicate"] else "1 of 1",
+                "Status": "Multi-Instance" if p["is_duplicate"] else "Single Instance"
+            }
+            for p in cad_info["structured_parts"]
+        ])
+        st.dataframe(df_parts, use_container_width=True)
 
 
 
@@ -286,7 +602,7 @@ if bom_file:
 # Requirement
 # --------------------------------------------------------
 
-st.subheader("Requirement")
+st.markdown('<div style="font-size: 1.18rem; font-weight: 700; color: #FFFFFF; margin-top: 24px; margin-bottom: 8px; letter-spacing: -0.01em;">Engineering Requirement</div>', unsafe_allow_html=True)
 
 requirement = st.text_area(
     "Enter Requirement",
@@ -321,13 +637,18 @@ if st.button("Generate Engineering Knowledge"):
     else:
         with st.spinner("Building Engineering Knowledge..."):
 
-            cad_doc = parse_step_file(
-                st.session_state.cad_path
-            )
+            if st.session_state.get("cad_doc") is not None:
+                cad_doc = st.session_state.cad_doc
+            else:
+                cad_res = process_cad_file(st.session_state.cad_path, bom_doc=st.session_state.get("bom_doc"))
+                cad_doc = cad_res["cad_doc"]
+                st.session_state.cad_doc = cad_doc
 
-            bom_doc = parse_bom_file_from_path(
-                st.session_state.bom_path
-            )
+            if st.session_state.get("bom_doc") is not None:
+                bom_doc = st.session_state.bom_doc
+            else:
+                bom_doc = parse_bom_file_from_path(st.session_state.bom_path)
+                st.session_state.bom_doc = bom_doc
 
             manual_doc = parse_manual(
                 st.session_state.document_state.current_file
@@ -338,7 +659,8 @@ if st.button("Generate Engineering Knowledge"):
                 image_index,
                 image_metadata
             ) = build_rag_indexes(
-                manual_doc
+                manual_doc=manual_doc,
+                cad_doc=cad_doc
             )
             st.session_state.chunks = chunks
             st.session_state.text_index = text_index

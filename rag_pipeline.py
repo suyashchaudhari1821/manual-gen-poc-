@@ -594,11 +594,32 @@ for image in image_results:
 
     print(image["image_path"]) """
 
-def build_rag_indexes(manual_doc):
+def build_rag_indexes(manual_doc, cad_doc=None):
 
     chunks = build_chunks(
         manual_doc
     )
+
+    if cad_doc and hasattr(cad_doc, "parts") and cad_doc.parts:
+        parts_lines = []
+        for p in cad_doc.parts:
+            p_name = getattr(p, "name", "")
+            p_num = getattr(p, "part_number", "")
+            p_uniq = getattr(p, "unique_name", p_name)
+            p_occ = getattr(p, "occurrence", 1)
+            p_tot = getattr(p, "total_occurrences", 1)
+            if p_tot > 1:
+                parts_lines.append(f"- Part: {p_name} | Unique ID: {p_uniq} | Part Number: {p_num} (Occurrence {p_occ} of {p_tot})")
+            else:
+                parts_lines.append(f"- Part: {p_name} | Unique ID: {p_uniq} | Part Number: {p_num}")
+        cad_chunk = KnowledgeChunk(
+            chunk_id="cad_bom_parts_chunk",
+            title="CAD Assembly & BOM Parts Specification",
+            source_type="cad",
+            page_number=1,
+            content="CAD Assembly Parts Catalog and Component Hierarchy:\n" + "\n".join(parts_lines)
+        )
+        chunks.append(cad_chunk)
 
     text_index = build_text_index(
         chunks

@@ -17,6 +17,11 @@ class CenterOfMass(BaseModel):
 class CADPart(BaseModel):
     part_id: str
     name: str
+    unique_name: Optional[str] = None
+    part_number: Optional[str] = None
+    occurrence: int = 1
+    total_occurrences: int = 1
+    is_duplicate: bool = False
 
     description: Optional[str] = None
 
@@ -27,8 +32,8 @@ class CADPart(BaseModel):
     volume: float = 0.0
     surface_area: float = 0.0
 
-    bounding_box: BoundingBox
-    center_of_mass: CenterOfMass
+    bounding_box: Optional[BoundingBox] = None
+    center_of_mass: Optional[CenterOfMass] = None
 
 
 class CADAssembly(BaseModel):
