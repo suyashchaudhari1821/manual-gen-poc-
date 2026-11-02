@@ -2015,9 +2015,6 @@ def _try_companion_fallback(filepath):
                         continue
                     if any(pref and pref.lower() in f.stem.lower() for pref in prefixes):
                         if f not in candidates:
-                            candidates.insert(0, f)
-                    elif not stem.startswith("tmp"):
-                        if f not in candidates:
                             candidates.append(f)
 
         for cand in candidates:
