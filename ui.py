@@ -2,6 +2,7 @@ import streamlit as st
 import tempfile
 import json
 import os
+import base64
 import textwrap
 import fitz
 import pandas as pd
@@ -184,23 +185,22 @@ st.set_page_config(
 
 def inject_expleo_theme():
     bg_b64 = get_base64_image("static/expleo_bg.jpg")
-    bg_css = f"url('data:image/jpeg;base64,{bg_b64}')" if bg_b64 else "url('https://expleo.com/global/en/wp-content/uploads/2026/10/power-of-ai_bfsi_homepage-slider_desktop.jpg')"
+    bg_css = f"url('data:image/jpeg;base64,{bg_b64}')" if bg_b64 else "none"
 
     st.markdown(textwrap.dedent(f"""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
 
-    /* Expleo Corporate Website Background & Atmosphere */
+    /* Expleo Corporate Engineering Atmosphere */
     .stApp {{
-        background: #090710 !important;
+        background-color: #0b0f19 !important;
         background-image: 
-            radial-gradient(circle at 12% 16%, rgba(104, 70, 198, 0.28) 0%, transparent 45%),
-            radial-gradient(circle at 88% 84%, rgba(110, 193, 228, 0.16) 0%, transparent 50%),
-            linear-gradient(180deg, rgba(9, 7, 16, 0.82) 0%, rgba(14, 11, 24, 0.90) 100%),
+            linear-gradient(180deg, rgba(14, 18, 32, 0.48) 0%, rgba(10, 14, 26, 0.70) 100%),
             {bg_css} !important;
-        background-size: cover !important;
-        background-position: center !important;
-        background-attachment: fixed !important;
+        background-size: cover, cover !important;
+        background-position: center, center !important;
+        background-repeat: no-repeat, no-repeat !important;
+        background-attachment: fixed, fixed !important;
         font-family: 'Inter', -apple-system, sans-serif !important;
         color: #F8FAFC !important;
     }}
