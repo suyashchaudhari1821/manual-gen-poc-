@@ -183,17 +183,24 @@ st.set_page_config(
 )
 
 def inject_expleo_theme():
+    bg_b64 = get_base64_image("static/expleo_bg.jpg")
+    bg_css = f"url('data:image/jpeg;base64,{bg_b64}')" if bg_b64 else "url('https://expleo.com/global/en/wp-content/uploads/2026/10/power-of-ai_bfsi_homepage-slider_desktop.jpg')"
+
     st.markdown(textwrap.dedent(f"""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
 
-    /* Expleo Corporate Slate & Navy Atmosphere */
+    /* Expleo Corporate Website Background & Atmosphere */
     .stApp {{
-        background: #0B0F17 !important;
+        background: #090710 !important;
         background-image: 
-            radial-gradient(circle at 14% 12%, rgba(2, 132, 199, 0.14) 0%, transparent 42%),
-            radial-gradient(circle at 86% 86%, rgba(14, 165, 233, 0.09) 0%, transparent 46%),
-            linear-gradient(180deg, rgba(11, 15, 23, 0.96) 0%, rgba(15, 23, 42, 0.99) 100%) !important;
+            radial-gradient(circle at 12% 16%, rgba(104, 70, 198, 0.28) 0%, transparent 45%),
+            radial-gradient(circle at 88% 84%, rgba(110, 193, 228, 0.16) 0%, transparent 50%),
+            linear-gradient(180deg, rgba(9, 7, 16, 0.82) 0%, rgba(14, 11, 24, 0.90) 100%),
+            {bg_css} !important;
+        background-size: cover !important;
+        background-position: center !important;
+        background-attachment: fixed !important;
         font-family: 'Inter', -apple-system, sans-serif !important;
         color: #F8FAFC !important;
     }}
