@@ -172,7 +172,7 @@ def get_base64_image(image_path):
         return ""
 
 st.set_page_config(
-    page_title="Expleo | Engineering Documentation Generator",
+    page_title="Expleo | Manual Updation Tool",
     page_icon="static/favicon.png",
     layout="wide",
 )
@@ -391,7 +391,7 @@ def render_expleo_topbar():
       <div class="expleo-nav-brand">
         {logo_html}
         <div class="nav-divider"></div>
-        <div class="nav-title">Engineering Documentation Generator</div>
+        <div class="nav-title">Manual Updation Tool</div>
       </div>
     </div>
     """).strip(), unsafe_allow_html=True)

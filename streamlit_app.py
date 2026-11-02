@@ -1,6 +1,6 @@
 """
 Streamlit Cloud Entry Point
-Launches the Expleo Engineering Documentation Generator UI (ui.py)
+Launches the Expleo Manual Updation Tool UI (ui.py)
 """
 import sys
 from pathlib import Path
