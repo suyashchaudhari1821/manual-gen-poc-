@@ -1239,6 +1239,12 @@ def _try_occ_xde(filepath, ext, colors):
         if doc is None:
             return None
 
+        # Ensure document is explicitly initialized as an XCAF document in headless environments
+        try:
+            XCAFDoc_DocumentTool.Set_s(doc.Main())
+        except Exception:
+            pass
+
         reader = STEPCAFControl_Reader()
         reader.SetColorMode(True)
         reader.SetNameMode(True)
@@ -1399,10 +1405,10 @@ def _try_occ_xde(filepath, ext, colors):
         return None
 
     except (ImportError, AttributeError) as e:
-        logger.debug(f"XDE import not available: {e}")
+        logger.error(f"XDE import not available: {e}", exc_info=True)
         return None
     except Exception as e:
-        logger.debug(f"XDE import failed: {e}")
+        logger.error(f"XDE import failed: {e}", exc_info=True)
         return None
 
 
