@@ -819,6 +819,70 @@ def _calc_adaptive_deflection(shape) -> Tuple[float, float]:
     return 0.5, 0.5
 
 
+def _topods_solid(shape):
+    try:
+        from OCP.TopoDS import TopoDS
+        fn = getattr(TopoDS, 'Solid', None) or getattr(TopoDS, 'Solid_s', None)
+        if fn:
+            return fn(shape)
+    except Exception:
+        pass
+    try:
+        from OCP.TopoDS import TopoDS_Solid
+        return TopoDS_Solid(shape)
+    except Exception:
+        pass
+    return shape
+
+
+def _topods_shell(shape):
+    try:
+        from OCP.TopoDS import TopoDS
+        fn = getattr(TopoDS, 'Shell', None) or getattr(TopoDS, 'Shell_s', None)
+        if fn:
+            return fn(shape)
+    except Exception:
+        pass
+    try:
+        from OCP.TopoDS import TopoDS_Shell
+        return TopoDS_Shell(shape)
+    except Exception:
+        pass
+    return shape
+
+
+def _topods_face(shape):
+    try:
+        from OCP.TopoDS import TopoDS
+        fn = getattr(TopoDS, 'Face', None) or getattr(TopoDS, 'Face_s', None)
+        if fn:
+            return fn(shape)
+    except Exception:
+        pass
+    try:
+        from OCP.TopoDS import TopoDS_Face
+        return TopoDS_Face(shape)
+    except Exception:
+        pass
+    return shape
+
+
+def _topods_compound(shape):
+    try:
+        from OCP.TopoDS import TopoDS
+        fn = getattr(TopoDS, 'Compound', None) or getattr(TopoDS, 'Compound_s', None)
+        if fn:
+            return fn(shape)
+    except Exception:
+        pass
+    try:
+        from OCP.TopoDS import TopoDS_Compound
+        return TopoDS_Compound(shape)
+    except Exception:
+        pass
+    return shape
+
+
 def _tessellate_shape(shape, lin_defl=None, ang_defl=0.5) -> Optional[dict]:
     """Tessellate a single TopoDS_Shape into {vertices, faces} arrays with adaptive meshing."""
     from OCP.TopExp import TopExp_Explorer
@@ -839,7 +903,7 @@ def _tessellate_shape(shape, lin_defl=None, ang_defl=0.5) -> Optional[dict]:
     vl, fl, vo = [], [], 0
     fe = TopExp_Explorer(shape, TopAbs_FACE)
     while fe.More():
-        face = TopoDS.Face_s(fe.Current())
+        face = _topods_face(fe.Current())
         loc = TopLoc_Location()
         tri = BRep_Tool.Triangulation_s(face, loc)
         if tri is None or tri.NbTriangles() == 0:
@@ -1057,7 +1121,7 @@ def _try_occ_import(filepath):
         explorer = TopExp_Explorer(shape, TopAbs_SOLID)
         si = 0
         while explorer.More():
-            solid = TopoDS.Solid_s(explorer.Current())
+            solid = _topods_solid(explorer.Current())
             mesh = _tessellate_shape(solid, lin_defl, ang_defl)
             if mesh:
                 part = AssemblyNode(f"Part_{si + 1}", "part")
@@ -1071,7 +1135,7 @@ def _try_occ_import(filepath):
         if not root.children:
             explorer = TopExp_Explorer(shape, TopAbs_SHELL)
             while explorer.More():
-                shell = TopoDS.Shell_s(explorer.Current())
+                shell = _topods_shell(explorer.Current())
                 mesh = _tessellate_shape(shell, lin_defl, ang_defl)
                 if mesh:
                     part = AssemblyNode(f"Shell_{si + 1}", "part")
@@ -1086,7 +1150,7 @@ def _try_occ_import(filepath):
             explorer = TopExp_Explorer(shape, TopAbs_FACE)
             face_vl, face_fl, vo = [], [], 0
             while explorer.More():
-                face = TopoDS.Face_s(explorer.Current())
+                face = _topods_face(explorer.Current())
                 fm = _tessellate_shape(face, lin_defl, ang_defl)
                 if fm:
                     face_vl.append(fm["vertices"])
@@ -1149,9 +1213,31 @@ def _try_occ_xde(filepath, ext, colors):
         Interface_Static.SetIVal_s('read.step.assembly.level', 1)
         Interface_Static.SetIVal_s('read.step.shape.aspect', 1)
 
-        app = XCAFApp_Application.GetApplication_s()
-        doc = TDocStd_Document(TCollection_ExtendedString("mdtv-xcaf"))
-        app.InitDocument(doc)
+        doc = None
+        for fmt in ["XmlOcaf", "BinOcaf", "MDTV-XCAF", "BinXCAF", "XmlXCAF", "mdtv-xcaf"]:
+            try:
+                doc = TDocStd_Document(TCollection_ExtendedString(fmt))
+                break
+            except Exception:
+                continue
+
+        if doc is None:
+            try:
+                from OCP.XCAFApp import XCAFApp_Application
+                app = XCAFApp_Application.GetApplication_s()
+                for fmt in ["MDTV-XCAF", "BinXCAF", "XmlXCAF", "mdtv-xcaf"]:
+                    try:
+                        d = TDocStd_Document(TCollection_ExtendedString(fmt))
+                        app.InitDocument(d)
+                        doc = d
+                        break
+                    except Exception:
+                        continue
+            except Exception:
+                pass
+
+        if doc is None:
+            return None
 
         reader = STEPCAFControl_Reader()
         reader.SetColorMode(True)
@@ -1162,8 +1248,10 @@ def _try_occ_xde(filepath, ext, colors):
         status = reader.ReadFile(str(filepath))
         
         # In converted files, attempt transfer even if status had warnings/non-critical issues
-        if not reader.Transfer(doc):
-            return None
+        try:
+            reader.Transfer(doc)
+        except Exception as tr_err:
+            logger.warning(f"XDE Transfer notice: {tr_err}")
 
         shape_tool = XCAFDoc_DocumentTool.ShapeTool_s(doc.Main())
         color_tool = XCAFDoc_DocumentTool.ColorTool_s(doc.Main())
@@ -1253,7 +1341,7 @@ def _try_occ_xde(filepath, ext, colors):
             meshes_vl, meshes_fl, vo = [], [], 0
             explorer = TopExp_Explorer(shape, TopAbs_SOLID)
             while explorer.More():
-                solid = TopoDS.Solid_s(explorer.Current())
+                solid = _topods_solid(explorer.Current())
                 m = _tessellate_shape(solid, lin_defl, ang_defl)
                 if m:
                     meshes_vl.append(m["vertices"])
@@ -1265,7 +1353,7 @@ def _try_occ_xde(filepath, ext, colors):
             if not meshes_vl:
                 explorer = TopExp_Explorer(shape, TopAbs_SHELL)
                 while explorer.More():
-                    shell = TopoDS.Shell_s(explorer.Current())
+                    shell = _topods_shell(explorer.Current())
                     m = _tessellate_shape(shell, lin_defl, ang_defl)
                     if m:
                         meshes_vl.append(m["vertices"])
@@ -2087,8 +2175,8 @@ def convert_cad_to_gltf(input_path: str, output_dir: str,
         if assembly is None and ext in ('.step', '.stp', '.iges', '.igs'):
             assembly = _try_occ_import(input_path)
 
-        # 2. Fallback: Trimesh multi-format reader
-        if assembly is None and ext in ('.step', '.stp', '.iges', '.igs', '.stl', '.obj'):
+        # 2. Fallback: Trimesh multi-format reader (only for mesh-based formats)
+        if assembly is None and ext in ('.stl', '.obj'):
             logger.info(f"Trying trimesh fallback for {input_path}")
             assembly = _try_trimesh_fallback(input_path)
 

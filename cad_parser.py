@@ -15,7 +15,13 @@ import sys
 import math
 import struct
 import re
-from cad_tracing import traceable
+try:
+    from cad_tracing import traceable
+except Exception:
+    def traceable(*args, **kwargs):
+        def wrapper(fn):
+            return fn
+        return wrapper
 
 # Try to detect if OCC is available
 try:
