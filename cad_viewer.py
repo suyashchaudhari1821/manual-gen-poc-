@@ -7,7 +7,7 @@ Professional 3D CAD Viewer component styled to CATIA engineering visualization s
   • Authentic satin mechanical PBR finish (never reflective/shiny chrome or neon blowout)
   • Harmonized engineering material color calibration (cast-iron terracotta, brass yellow, steel)
   • Sleek dark engineering viewport (#0e1117) with tone-mapped contrast
-  • Top toolbar with Parts Tree, Reset, Wireframe, Grid, Model Tag, and Explode slider
+  • Top toolbar with Parts Tree, Reset, Wireframe, Grid, and Model Tag
   • Zero emojis throughout the interface — clean vector SVG icons and engineering badges
   • Collapsible Parts Drawer (hidden by default) with real-time search
 """
@@ -159,35 +159,6 @@ def generate_viewer_html(
     font-size: 9px;
     font-weight: 700;
     letter-spacing: 0.5px;
-  }}
-
-  /* Explode Slider in Toolbar */
-  .slider-box {{
-    margin-left: auto;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--text-muted);
-  }}
-  .slider-box input[type="range"] {{
-    -webkit-appearance: none;
-    width: 100px;
-    height: 4px;
-    background: rgba(255, 255, 255, 0.15);
-    border-radius: 2px;
-    outline: none;
-    cursor: pointer;
-  }}
-  .slider-box input[type="range"]::-webkit-slider-thumb {{
-    -webkit-appearance: none;
-    width: 13px;
-    height: 13px;
-    border-radius: 50%;
-    background: var(--accent-cyan);
-    box-shadow: 0 0 8px var(--accent-cyan);
-    cursor: pointer;
   }}
 
   /* Parts Tree Drawer */
@@ -374,12 +345,6 @@ def generate_viewer_html(
   </button>
 
   <span class="model-tag" title="{model_name}"><span class="cad-pill">CAD</span> {model_name}</span>
-
-  <div class="slider-box">
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
-    <span>Explode:</span>
-    <input type="range" id="explode-slider" min="0" max="100" value="0" oninput="onExplodeChange(this.value)"/>
-  </div>
 </div>
 
 <!-- Parts Drawer (starts hidden / collapsed) -->
@@ -764,22 +729,6 @@ def generate_viewer_html(
     }}
   }}
 
-  function onExplodeChange(val) {{
-    if (!modelGroup) return;
-    const factor = (parseFloat(val) / 100.0) * (modelRadius * 1.5);
-
-    modelGroup.traverse((child) => {{
-      if (child.isMesh && partOriginalPositions.has(child)) {{
-        const origPos = partOriginalPositions.get(child);
-        const dir = origPos.clone().normalize();
-        if (dir.lengthSq() < 0.0001) {{
-          dir.set(0, 1, 0);
-        }}
-        child.position.copy(origPos).addScaledVector(dir, factor);
-      }}
-    }});
-  }}
-
   function toggleDrawer() {{
     const drawer = document.getElementById('parts-drawer');
     const btn = document.getElementById('btn-tree');
@@ -815,13 +764,6 @@ def generate_viewer_html(
     camera.lookAt(0, 0, 0);
     controls.target.set(0, 0, 0);
     controls.update();
-
-    // Reset explode slider
-    const explodeSlider = document.getElementById('explode-slider');
-    if (explodeSlider) {{
-      explodeSlider.value = 0;
-      onExplodeChange(0);
-    }}
   }}
 
   function onResize() {{
