@@ -161,6 +161,35 @@ def generate_viewer_html(
     letter-spacing: 0.5px;
   }}
 
+  /* Explode Slider in Toolbar */
+  .slider-box {{
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+  }}
+  .slider-box input[type="range"] {{
+    -webkit-appearance: none;
+    width: 100px;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+  }}
+  .slider-box input[type="range"]::-webkit-slider-thumb {{
+    -webkit-appearance: none;
+    width: 13px;
+    height: 13px;
+    border-radius: 50%;
+    background: var(--accent-cyan);
+    box-shadow: 0 0 8px var(--accent-cyan);
+    cursor: pointer;
+  }}
+
   /* Parts Tree Drawer */
   #parts-drawer {{
     position: absolute;
@@ -345,6 +374,12 @@ def generate_viewer_html(
   </button>
 
   <span class="model-tag" title="{model_name}"><span class="cad-pill">CAD</span> {model_name}</span>
+
+  <div class="slider-box">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+    <span>Explode:</span>
+    <input type="range" id="explode-slider" min="0" max="100" value="0" oninput="onExplodeChange(this.value)"/>
+  </div>
 </div>
 
 <!-- Parts Drawer (starts hidden / collapsed) -->
@@ -391,13 +426,13 @@ def generate_viewer_html(
   let modelCenter = new THREE.Vector3();
   let modelRadius = 1;
 
-  // CAD Selection Highlight Material (clean emerald green)
+  // CAD Selection Highlight Material (clean cyan glow)
   const highlightMaterial = new THREE.MeshStandardMaterial({{
-    color: 0x00E676,
-    emissive: 0x00A850,
-    emissiveIntensity: 0.35,
-    metalness: 0.25,
-    roughness: 0.50,
+    color: 0x06b6d4,
+    emissive: 0x0284c7,
+    emissiveIntensity: 0.5,
+    metalness: 0.3,
+    roughness: 0.4,
     wireframe: false
   }});
 
@@ -406,61 +441,55 @@ def generate_viewer_html(
     const width = container.clientWidth || window.innerWidth;
     const height = container.clientHeight || window.innerHeight;
 
-    // Sleek dark engineering viewport
+    // Clean slate viewport background matching original
     scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x0e1117);
+    scene.background = new THREE.Color(0x0f172a);
 
-    // Camera with vast depth range
-    camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 10000000);
+    // Camera
+    camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100000);
     camera.position.set(100, 100, 150);
 
-    // Renderer with ACESFilmic tone mapping to eliminate highlight blowout
+    // Renderer (crisp, vibrant, no shadow-map acne or tone-mapping color muting)
     renderer = new THREE.WebGLRenderer({{
       antialias: true,
-      alpha: true,
-      logarithmicDepthBuffer: true
+      alpha: true
     }});
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 0.95;
     container.appendChild(renderer.domElement);
 
     // Smooth OrbitControls
     controls = new THREE.OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
-    controls.dampingFactor = 0.06;
+    controls.dampingFactor = 0.05;
     controls.rotateSpeed = 0.85;
     controls.zoomSpeed = 1.2;
     controls.panSpeed = 0.8;
-    controls.minDistance = 0.001;
-    controls.maxDistance = 10000000;
+    controls.minDistance = 0.1;
+    controls.maxDistance = 100000;
 
-    // CATIA Engineering Studio Lighting Setup (balanced, volumetric contrast)
-    // 1. Soft neutral ambient light — preserves deep contours without flat wash-out
-    const ambientLight = new THREE.AmbientLight(0x353a47, 0.45);
+    // Vibrant CAD Studio Multi-Angle Lighting (clean, bright, true-to-life colors)
+    // 1. Ambient Light (provides rich base illumination across all parts)
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.85);
     scene.add(ambientLight);
 
-    // 2. Primary Key Light (Top-Right-Front): sculpts curvature, fillets, and chamfers
-    const keyLight = new THREE.DirectionalLight(0xfff7ee, 0.95);
-    keyLight.position.set(120, 180, 140);
-    keyLight.castShadow = true;
+    // 2. Key Light (Top-Right-Front)
+    const keyLight = new THREE.DirectionalLight(0xffffff, 1.2);
+    keyLight.position.set(150, 200, 150);
     scene.add(keyLight);
 
-    // 3. Soft Fill Light (Left-Back): provides gentle illumination on shadowed sides
-    const fillLight = new THREE.DirectionalLight(0x6b7d96, 0.35);
-    fillLight.position.set(-140, 60, -100);
+    // 3. Fill Light (Left-Back) — soft blue-indigo fill for rich mechanical depth
+    const fillLight = new THREE.DirectionalLight(0x818cf8, 0.6);
+    fillLight.position.set(-150, -100, -150);
     scene.add(fillLight);
 
-    // 4. Subtle Rim Accent (Back-Bottom): sharpens silhouettes
-    const rimLight = new THREE.DirectionalLight(0x8da0b5, 0.22);
-    rimLight.position.set(0, -100, 80);
-    scene.add(rimLight);
+    // 4. Top Light
+    const topLight = new THREE.DirectionalLight(0xffffff, 0.35);
+    topLight.position.set(0, 250, 0);
+    scene.add(topLight);
 
     // Floor Grid
-    gridHelper = new THREE.GridHelper(300, 30, 0x1f2533, 0x141822);
+    gridHelper = new THREE.GridHelper(300, 30, 0x334155, 0x1e293b);
     gridHelper.position.y = -0.5;
     scene.add(gridHelper);
 
@@ -525,41 +554,33 @@ def generate_viewer_html(
       function (gltf) {{
         modelGroup = gltf.scene;
 
-        // Calibrate materials to authentic CATIA mechanical engineering finish
+        // Auto color palette only for uncolored parts
+        const fallbackPalette = [
+          0x38bdf8, 0x818cf8, 0x34d399, 0xfbbf24,
+          0xf472b6, 0xa78bfa, 0x2dd4bf, 0xfb923c,
+          0x94a3b8, 0x60a5fa, 0x4ade80, 0xe879f9
+        ];
+        let colorIdx = 0;
+
+        // Traverse meshes: preserve authentic CAD colors exported from STEP file
         modelGroup.traverse((child) => {{
           if (child.isMesh) {{
             if (child.material) {{
               child.material.side = THREE.DoubleSide;
-              // Satin mechanical finish — eliminates plastic gloss and mirror chrome
-              child.material.metalness = 0.28;
-              child.material.roughness = 0.58;
 
-              // Color calibration matching CATIA reference palette
-              if (child.material.color) {{
-                const col = child.material.color;
-                // Harmonize neon yellow (CASING / PULLEYS) to engineering dichromate brass/gold
-                if (col.r > 0.82 && col.g > 0.82 && col.b < 0.25) {{
-                  col.setRGB(0.70, 0.68, 0.16);
-                }}
-                // Harmonize neon coral (ENGINE HOUSING) to authentic CATIA cast machinery terracotta / maroon
-                else if (col.r > 0.80 && col.g < 0.50 && col.b < 0.40) {{
-                  col.setRGB(0.56, 0.30, 0.28);
-                }}
-                // Harmonize pure neon green
-                else if (col.g > 0.82 && col.r < 0.30 && col.b < 0.30) {{
-                  col.setRGB(0.18, 0.58, 0.26);
-                }}
-                // Harmonize stark pure white
-                else if (col.r > 0.90 && col.g > 0.90 && col.b > 0.90) {{
-                  col.setRGB(0.76, 0.78, 0.82);
-                }}
+              // Only assign fallback color if the mesh has no color or is plain default white
+              if (!child.material.color || (child.material.color.r > 0.98 && child.material.color.g > 0.98 && child.material.color.b > 0.98)) {{
+                child.material.color = new THREE.Color(fallbackPalette[colorIdx % fallbackPalette.length]);
+                colorIdx++;
               }}
+
+              // Clean satin mechanical finish
+              child.material.metalness = 0.25;
+              child.material.roughness = 0.45;
 
               originalMaterials.set(child, child.material.clone());
             }}
             partOriginalPositions.set(child, child.position.clone());
-            child.castShadow = true;
-            child.receiveShadow = true;
           }}
         }});
 
