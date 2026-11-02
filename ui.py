@@ -183,23 +183,17 @@ st.set_page_config(
 )
 
 def inject_expleo_theme():
-    bg_b64 = get_base64_image("static/expleo_bg_hd.png")
-    bg_css = f"url('data:image/png;base64,{bg_b64}')" if bg_b64 else "none"
-
     st.markdown(textwrap.dedent(f"""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
 
-    /* Expleo Brand Atmosphere with Crisp HD Background */
+    /* Expleo Corporate Slate & Navy Atmosphere */
     .stApp {{
-        background-color: #5631c7 !important;
+        background: #0B0F17 !important;
         background-image: 
-            linear-gradient(180deg, rgba(16, 11, 34, 0.50) 0%, rgba(22, 14, 46, 0.68) 100%),
-            {bg_css} !important;
-        background-size: cover, cover !important;
-        background-position: center, center !important;
-        background-repeat: no-repeat, no-repeat !important;
-        background-attachment: fixed, fixed !important;
+            radial-gradient(circle at 14% 12%, rgba(2, 132, 199, 0.14) 0%, transparent 42%),
+            radial-gradient(circle at 86% 86%, rgba(14, 165, 233, 0.09) 0%, transparent 46%),
+            linear-gradient(180deg, rgba(11, 15, 23, 0.96) 0%, rgba(15, 23, 42, 0.99) 100%) !important;
         font-family: 'Inter', -apple-system, sans-serif !important;
         color: #F8FAFC !important;
     }}
