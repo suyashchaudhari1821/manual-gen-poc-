@@ -154,19 +154,13 @@ def update_docx_manual(
 
     return output_docx
 def save_uploaded_file(uploaded_file):
-
-    suffix = "." + uploaded_file.name.split(".")[-1]
-
-    with tempfile.NamedTemporaryFile(
-        delete=False,
-        suffix=suffix
-    ) as tmp:
-
-        tmp.write(
-            uploaded_file.getbuffer()
-        )
-
-        return tmp.name
+    uploads_dir = os.path.join(os.getcwd(), "uploads")
+    os.makedirs(uploads_dir, exist_ok=True)
+    clean_name = os.path.basename(uploaded_file.name)
+    target_path = os.path.join(uploads_dir, clean_name)
+    with open(target_path, "wb") as f:
+        f.write(uploaded_file.getbuffer())
+    return target_path
 
 
 

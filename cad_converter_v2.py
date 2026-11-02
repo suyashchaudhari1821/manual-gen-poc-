@@ -870,6 +870,19 @@ def _tessellate_shape(shape, lin_defl=None, ang_defl=0.5) -> Optional[dict]:
     }
 
 
+def _is_valid_step(filepath: str) -> bool:
+    """Quickly verify file has valid STEP ISO-10303 ASCII header without crashing OCC."""
+    try:
+        p = Path(filepath)
+        if not p.is_file() or p.stat().st_size < 50:
+            return False
+        with open(filepath, 'rb') as f:
+            header = f.read(512)
+            return b'ISO-10303' in header or b'HEADER' in header
+    except Exception:
+        return False
+
+
 def _validate_step_file(filepath):
     """Check if a STEP file is complete and repair if truncated.
     Supports converted files from SolidWorks, Inventor, CATIA, Rhino, and mesh converters.
@@ -967,6 +980,9 @@ def _try_occ_import(filepath):
 
         # ── 2. Plain reader → solid & surface level tessellation ──
         if ext in ('.step', '.stp'):
+            if not _is_valid_step(filepath):
+                logger.warning(f"Skipping OCC read: {filepath} is not a valid STEP file header")
+                return None
             try:
                 from OCP.STEPControl import STEPControl_Reader
                 # Configure Interface_Static for permissive conversion of all shapes & assemblies
@@ -1968,16 +1984,41 @@ def _try_companion_fallback(filepath):
         except Exception:
             pass
 
-        # Look for companion CAD files in the same directory
+        # Search only safe project directories, NEVER scan OS temp directories
+        import tempfile
+        temp_dir = Path(tempfile.gettempdir()).resolve()
+        search_dirs = [Path.cwd()]
+        if not p.resolve().is_relative_to(temp_dir):
+            search_dirs.insert(0, p.parent)
+        if (Path.cwd() / "uploads").is_dir():
+            search_dirs.append(Path.cwd() / "uploads")
+
+        # Prefixes to correlate (e.g. "E5312070" from "E5312070100000" or declared products)
+        prefixes = []
+        clean_stem = stem.replace("tmp", "")
+        if len(clean_stem) >= 6:
+            prefixes.append(clean_stem[:8])
+        for pn in part_names:
+            if len(pn) >= 6:
+                prefixes.append(pn[:8])
+
         candidates = []
-        stem_prefix = stem.split()[0][:8] if len(stem.split()[0]) >= 8 else stem.split()[0]
-        for ext in ('.stl', '.obj', '.step', '.stp'):
-            for f in folder.glob(f'*{ext}'):
-                if f.resolve() != p.resolve():
-                    if f.stem.startswith(stem_prefix) or stem_prefix in f.stem:
-                        candidates.insert(0, f)
-                    else:
-                        candidates.append(f)
+        for s_dir in search_dirs:
+            for ext in ('.stl', '.obj', '.step', '.stp'):
+                for f in s_dir.glob(f'*{ext}'):
+                    if f.resolve() == p.resolve():
+                        continue
+                    try:
+                        if f.stat().st_size < 512:
+                            continue
+                    except Exception:
+                        continue
+                    if any(pref and pref.lower() in f.stem.lower() for pref in prefixes):
+                        if f not in candidates:
+                            candidates.insert(0, f)
+                    elif not stem.startswith("tmp"):
+                        if f not in candidates:
+                            candidates.append(f)
 
         for cand in candidates:
             try:
@@ -1985,7 +2026,7 @@ def _try_companion_fallback(filepath):
                 cand_assembly = None
                 if cand_ext in ('.stl', '.obj'):
                     cand_assembly = _trimesh_import(str(cand))
-                elif cand_ext in ('.step', '.stp'):
+                elif cand_ext in ('.step', '.stp') and _is_valid_step(str(cand)):
                     cand_assembly = _try_occ_import(str(cand))
 
                 if cand_assembly and cand_assembly.children:

@@ -12,6 +12,7 @@ __pycache__/
 
 # Local runtime & scratch files
 converted_cad/
+uploads/
 test_cad1_glb/
 scratch_original_cad_viewer.py
 temp_*
